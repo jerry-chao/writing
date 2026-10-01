@@ -10,6 +10,7 @@ defmodule Writing.Application do
     children = [
       WritingWeb.Telemetry,
       Writing.Repo,
+      {Oban, Application.fetch_env!(:writing, Oban)},
       {DNSCluster, query: Application.get_env(:writing, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Writing.PubSub},
       # Start a worker by calling: Writing.Worker.start_link(arg)

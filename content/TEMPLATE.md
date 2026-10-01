@@ -34,4 +34,5 @@ article_url:                     # 永久链接 https://mp.weixin.qq.com/s/...
 ```
 
 发布时图片会被换成 `media/uploadimg` 返回的 `mmbiz.qpic.cn` 地址；
-不要在正文里直接写外链 URL，会被微信过滤。
+不要使用 Markdown 超链接。需要展示 GitHub 仓库地址时，将地址写成行内代码，
+例如 `` `https://github.com/owner/repo` ``；这样地址可见但不可点击。

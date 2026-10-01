@@ -23,6 +23,33 @@ end
 config :writing, WritingWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4006"))]
 
+config :writing, :trending_model, System.get_env("TRENDING_MODEL", "openai:gpt-4o-mini")
+config :writing, :github_token, System.get_env("GITHUB_TOKEN")
+config :writing, :trending_repo_path, System.get_env("TRENDING_REPO_PATH", File.cwd!())
+config :writing, :wechat_mp_app_id, System.get_env("WECHAT_MP_APPID")
+config :writing, :wechat_mp_app_secret, System.get_env("WECHAT_MP_APP_SECRET")
+
+deepseek_api_key = System.get_env("DEEPSEEK_API_KEY")
+deepseek_endpoint = System.get_env("DEEPSEEK_ENDPOINT")
+deepseek_model = System.get_env("DEEPSEEK_MODEL")
+
+if Enum.all?([deepseek_api_key, deepseek_endpoint, deepseek_model], &(is_binary(&1) and &1 != "")) do
+  endpoint_suffix = "/chat/completions"
+  endpoint_uri = URI.parse(deepseek_endpoint)
+
+  unless endpoint_uri.scheme == "https" and is_binary(endpoint_uri.host) and
+           String.ends_with?(endpoint_uri.path || "", endpoint_suffix) do
+    raise ArgumentError, "DEEPSEEK_ENDPOINT must be an HTTPS chat completions endpoint"
+  end
+
+  base_url = String.replace_suffix(deepseek_endpoint, endpoint_suffix, "")
+
+  config :writing,
+    trending_model: "openai:#{deepseek_model}",
+    trending_model_api_key: deepseek_api_key,
+    trending_model_base_url: base_url
+end
+
 if config_env() == :dev do
   # Reload browser tabs when matching files change.
   config :writing, WritingWeb.Endpoint,

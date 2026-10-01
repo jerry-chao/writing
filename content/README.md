@@ -118,7 +118,8 @@ content(<slug>): 发布并归档            # 回写 media_id/article_url + git 
 写作时就避开这些，等发布时被拒或被静默改写就晚了：
 
 - **正文不能有超链接。** `<a>` 标签被微信**整段剥除**，6 种写法无一存活（含腾讯自家域名）。
-  唯一的外链通道是 `content_source_url`（阅读原文），且必须是公网 URL。
+  唯一的可点击外链通道是 `content_source_url`（阅读原文），且必须是公网 URL。
+  GitHub Trending 文章可用行内代码展示仓库 URL 纯文本，不要写 Markdown 链接或裸 URL。
 - **正文图片必须走 `media/uploadimg`。** 外链图片会被过滤；封面另走
   `material/add_material`（永久素材）。两套接口别混。
 - **正文 <2 万字符、<1MB，不含 JS。** 中文字数按字符计，标题 ≤32、摘要 ≤120。

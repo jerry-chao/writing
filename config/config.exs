@@ -11,6 +11,16 @@ config :writing,
   ecto_repos: [Writing.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+config :elixir, :time_zone_database, Tz.TimeZoneDatabase
+
+config :writing, Oban,
+  repo: Writing.Repo,
+  queues: [trending: 1],
+  cron: [
+    timezone: "Asia/Shanghai",
+    crontab: [{"0 6 * * *", Writing.Trending.Worker}]
+  ]
+
 # Configure the endpoint
 config :writing, WritingWeb.Endpoint,
   url: [host: "localhost"],
