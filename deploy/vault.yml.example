@@ -1,0 +1,23 @@
+---
+# vault.yml.example — 模板：从这里重建 deploy/vault.yml。
+#
+# 步骤：
+#   1. 复制本文件为 deploy/vault.local.yml，填入真实值（该文件已被 gitignore，不要提交）。
+#   2. 加密生成 deploy/vault.yml（部署时读取的就是这个文件）：
+#        ansible-vault encrypt deploy/vault.local.yml --output deploy/vault.yml
+#   3. 提交加密后的 deploy/vault.yml 到 git（密文可安全入库，密码不进仓库）。
+#   4. 本地部署时写密码文件：
+#        echo '你的密码' > deploy/.vault_pass && chmod 600 deploy/.vault_pass
+#   5. CI 部署时更新 GitHub Actions 密钥：
+#        gh secret set VAULT_PASS --repo jerry-chao/writing
+
+# 生产数据库连接串，例如：ecto://postgres:postgres@localhost/writing_prod
+vault_database_url: "CHANGE_ME"
+
+# Phoenix secret_key_base，用 `mix phx.gen.secret` 生成（至少 64 字符）
+vault_secret_key_base: "CHANGE_ME"
+
+# 微信公众号凭据，可从项目根目录的 .env 拷贝
+# 留空则 env.sh 渲染为空字符串，不影响 Elixir 应用启动
+vault_wechat_appid: ""
+vault_wechat_secret: ""

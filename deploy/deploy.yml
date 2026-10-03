@@ -1,0 +1,183 @@
+---
+# deploy.yml — 从控制机（CI runner 或本地）推送 release 包并部署到服务器。
+#
+# 控制机需先准备 release-assets/ 目录（含 writing-<version>.tar.gz 与 SHA256SUMS）：
+#   CI: 由 release workflow 在同一 job 内构建后直接放入；
+#   本地: gh release download <version> --dir release-assets
+#
+# 用法（CI release workflow 或本地控制机）:
+#   ansible-playbook deploy.yml -i inventory.ini -e "release_version=0.1.0"
+- name: Deploy Writing
+  hosts: writing
+  become: true  # SSH 用户为 ubuntu（免密 sudo），文件/服务操作需 root 权限
+  vars_files:
+    - vault.yml
+    - vars.yml
+  tasks:
+    - name: Require a safe explicit release version
+      assert:
+        that:
+          - release_version | length > 0
+          - release_version is match('^[0-9][A-Za-z0-9._-]*$')
+          - "'..' not in release_version"
+          - "'/' not in release_version"
+        fail_msg: >-
+          release_version is required and must be a version such as 0.1.0,
+          without path separators or traversal sequences.
+
+    - name: Remember the currently deployed release
+      stat:
+        path: "{{ deploy_dir }}/current"
+      register: current_release_link
+
+    - name: Read the current release target
+      command: "readlink -f {{ deploy_dir }}/current"
+      register: previous_release
+      changed_when: false
+      when: current_release_link.stat.islnk | default(false)
+
+    - name: Locate release assets on control machine
+      # 等价于 soulvy/deploy 的 local_action，这里用未废弃的 delegate_to 写法
+      stat:
+        path: "{{ release_asset_dir }}/{{ item }}"
+      delegate_to: localhost
+      become: false  # 控制机本机任务，不需要 sudo
+      register: local_assets
+      run_once: true
+      loop:
+        - "{{ release_asset_name }}"
+        - "{{ release_checksum_name }}"
+
+    - name: Require release assets on control machine
+      assert:
+        that: item.stat.exists
+        fail_msg: >-
+          未找到 {{ release_asset_dir }}/{{ item.item }}。
+          请先准备 release 资产（CI 自动构建，或 gh release download <version> --dir release-assets）。
+      loop: "{{ local_assets.results }}"
+      run_once: true
+
+    - name: Ensure release download directory exists
+      file:
+        path: "{{ release_download_directory }}"
+        state: directory
+        mode: "0700"
+
+    - name: Ensure releases directory exists
+      file:
+        path: "{{ deploy_dir }}/releases"
+        state: directory
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_group }}"
+
+    - name: Copy release assets to server
+      copy:
+        src: "{{ release_asset_dir }}/{{ item }}"
+        dest: "{{ release_download_directory }}/{{ item }}"
+        mode: "0600"
+      loop:
+        - "{{ release_asset_name }}"
+        - "{{ release_checksum_name }}"
+
+    - name: Verify release tarball checksum before extraction
+      command: >-
+        sha256sum --check --status {{ release_checksum_name }}
+      args:
+        chdir: "{{ release_download_directory }}"
+      changed_when: false
+
+    - name: Remove incomplete release directory for this version
+      file:
+        path: "{{ release_directory }}"
+        state: absent
+
+    - name: Create versioned release directory
+      file:
+        path: "{{ release_directory }}"
+        state: directory
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_group }}"
+
+    - name: Extract release into versioned directory
+      unarchive:
+        src: "{{ release_download_directory }}/{{ release_asset_name }}"
+        dest: "{{ release_directory }}"
+        remote_src: true
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_group }}"
+
+    - name: Render env.sh
+      template:
+        src: templates/env.sh.j2
+        dest: "{{ deploy_dir }}/env.sh"
+        mode: "0600"
+
+    - name: Deploy systemd service
+      template:
+        src: templates/writing.service.j2
+        dest: /etc/systemd/system/writing.service
+
+    - name: Run database migrations (before switching symlink so old release still holds pool)
+      shell: >-
+        set -a; . {{ deploy_dir }}/env.sh; set +a;
+        {{ release_directory }}/bin/writing eval 'Writing.Release.migrate()'
+      register: migrate_result
+      retries: 3
+      delay: 10
+      until: migrate_result is success
+
+    - name: Switch release, restart, and verify health
+      block:
+        - name: Atomically update current symlink
+          file:
+            src: "{{ release_directory }}"
+            dest: "{{ deploy_dir }}/current"
+            state: link
+            force: true
+            owner: "{{ deploy_user }}"
+            group: "{{ deploy_group }}"
+
+        - name: Enable and restart service
+          systemd:
+            name: writing
+            enabled: true
+            daemon_reload: true
+            state: restarted
+
+        - name: Verify service is active
+          command: systemctl is-active --quiet writing
+          changed_when: false
+
+        - name: Verify HTTP health endpoint
+          uri:
+            url: "{{ health_check_url }}"
+            status_code: 200
+          register: health_check
+          until: health_check.status == 200
+          retries: "{{ health_check_retries }}"
+          delay: "{{ health_check_delay }}"
+      rescue:
+        - name: Restore previous current symlink
+          file:
+            src: "{{ previous_release.stdout }}"
+            dest: "{{ deploy_dir }}/current"
+            state: link
+            force: true
+          when: >
+            previous_release is defined and previous_release.stdout is defined
+            and previous_release.stdout | length > 0
+
+        - name: Restart previous service release
+          systemd:
+            name: writing
+            daemon_reload: true
+            state: restarted
+          when: >
+            previous_release is defined and previous_release.stdout is defined
+            and previous_release.stdout | length > 0
+
+        - name: Fail deployment after rollback
+          fail:
+            msg: >-
+              Deployment of {{ release_version }} failed after switching releases.
+              The previous release was restored when available.

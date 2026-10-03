@@ -31,6 +31,12 @@ writing-*.tar
 # Ignore digested assets cache.
 /priv/static/cache_manifest.json
 
+# Ignore static files digested by `mix assets.deploy` (phx.digest), which copies
+# the original to a `<name>-<md5>.<ext>` sibling plus a .gz. Regenerated on every
+# assets build, so they must never be committed.
+priv/static/**/*-????????????????????????????????.*
+priv/static/**/*.gz
+
 # In case you use Node.js/npm, you want to ignore these.
 npm-debug.log
 /assets/node_modules/
@@ -43,4 +49,13 @@ npm-debug.log
 # Python bytecode caches.
 __pycache__/
 *.py[cod]
+
+# Ansible vault password
+/deploy/.vault_pass
+
+# 明文秘钥工作副本（填入后需加密同步到 vault.yml）
+/deploy/vault.local.yml
+
+# Release assets staged by CI / `gh release download` for the deploy playbook
+/deploy/release-assets/
 

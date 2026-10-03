@@ -1,0 +1,27 @@
+---
+# 部署配置（非敏感）。敏感值全部放在加密的 vault.yml 中，本文件只做引用。
+deploy_dir: /opt/writing
+deploy_user: root
+deploy_group: root
+app_name: writing
+release_version: ""
+github_repository: "jerry-chao/writing"
+release_asset_name: "writing-{{ release_version }}.tar.gz"
+release_checksum_name: "SHA256SUMS"
+release_url: "https://github.com/{{ github_repository }}/releases/download/{{ release_version }}"
+release_directory: "{{ deploy_dir }}/releases/{{ release_version }}"
+release_download_directory: "/tmp/writing-releases"
+release_asset_dir: "{{ playbook_dir | dirname }}/release-assets"
+health_check_url: "http://127.0.0.1:4006/"
+health_check_retries: 10
+health_check_delay: 3
+phx_host: "43.166.161.102"
+app_port: "4006"
+
+# 引用 vault.yml 中的加密变量
+database_url: "{{ vault_database_url }}"
+secret_key_base: "{{ vault_secret_key_base }}"
+
+# 微信公众号凭据（scripts/*.py 使用，见 scripts/wx_common.py）
+wechat_appid: "{{ vault_wechat_appid | default('') }}"
+wechat_secret: "{{ vault_wechat_secret | default('') }}"

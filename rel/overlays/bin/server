@@ -1,0 +1,3 @@
+#!/bin/sh
+cd -P -- "$(dirname -- "$(command -v -- "$0")")"
+PHX_SERVER=true exec ./writing start

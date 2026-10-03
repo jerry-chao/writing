@@ -1,0 +1,17 @@
+[Unit]
+Description=Writing Phoenix App
+After=network.target postgresql.service
+
+[Service]
+Type=exec
+User={{ deploy_user | default('root') }}
+Group={{ deploy_group | default('root') }}
+WorkingDirectory={{ deploy_dir }}/current
+EnvironmentFile={{ deploy_dir }}/env.sh
+ExecStart={{ deploy_dir }}/current/bin/server
+ExecStop={{ deploy_dir }}/current/bin/writing stop
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

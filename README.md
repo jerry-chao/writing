@@ -25,7 +25,8 @@ To start your Phoenix server:
 
 Now you can visit [`localhost:4006`](http://localhost:4006) from your browser.
 
-Ready to run in production? Please [check our deployment guides](https://phoenix.hexdocs.pm/deployment.html).
+Ready to run in production? See [`deploy/README.md`](deploy/README.md) for the
+Ansible + `ansible-vault` deployment setup.
 
 ## Learn more
 
